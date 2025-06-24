@@ -31,20 +31,20 @@
 ## 🔧 Instalação
 
 1. Clone este repositório  
-   
+    ```
     git clone https://github.com/seu-usuario/booktree.git  
     cd booktree  
-
+    ```
 2. Instale dependências do backend  
-   
-    cd backend  
-    npm install  
-
+   ```
+   cd backend  
+   npm install  
+   ```
 3. Instale dependências do frontend  
-   
+    ```
     cd ../frontend  
     npm install  
-
+    ```
 ---
 
 ## ▶️ Como rodar
