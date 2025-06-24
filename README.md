@@ -135,9 +135,3 @@ Resposta:
 3. Faça suas alterações e commit (`git commit -m 'feat: descrição da feature'`)  
 4. Envie para o seu fork (`git push origin feature/nome-da-feature`)  
 5. Abra um Pull Request
-
----
-
-## 📄 Licença
-
-MIT © [Seu Nome](https://github.com/seu-usuario)
