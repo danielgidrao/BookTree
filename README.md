@@ -1,7 +1,7 @@
 # 📚 BookTree
 
-> **BookTree** é uma aplicação web para cadastro, busca e paginação de livros via índice em memória (B-Tree).  
-> Desenvolvida como demonstração na disciplina de Organização e Recuperação da Informação (UFSCar).
+ **BookTree** é uma aplicação web para cadastro, busca e paginação de livros via índice em memória (B-Tree).  
+ Desenvolvida como demonstração na disciplina de Organização e Recuperação da Informação (UFSCar).
 
 ---
 
