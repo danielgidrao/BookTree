@@ -125,13 +125,3 @@ Resposta:
             ├── pages/          # telas de busca e cadastro
             ├── App.tsx
             └── main.tsx
-
----
-
-## 🤝 Contribuição
-
-1. Fork este repositório  
-2. Crie uma branch (`git checkout -b feature/nome-da-feature`)  
-3. Faça suas alterações e commit (`git commit -m 'feat: descrição da feature'`)  
-4. Envie para o seu fork (`git push origin feature/nome-da-feature`)  
-5. Abra um Pull Request
