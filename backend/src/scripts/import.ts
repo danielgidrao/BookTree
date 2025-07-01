@@ -1,26 +1,25 @@
-// src/scripts/import.ts
 import fs from 'fs';
 import path from 'path';
 import { parse } from 'csv-parse/sync';
 import { Book } from '../interfaces';
+import { BTree } from '../bTree';
 
 const CSV_PATH = path.resolve(__dirname, 'dados.csv');
 const DATA_DIR = path.resolve(__dirname, '..', 'data');
-const DATA_FILE = path.join(DATA_DIR, 'books.json');
+const BOOKS_FILE = path.join(DATA_DIR, 'books.json');
+const TREE_FILE = path.join(DATA_DIR, 'btree.json');
 
 console.log('CSV:', CSV_PATH, '→ existe?', fs.existsSync(CSV_PATH));
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const csvContent = fs.readFileSync(CSV_PATH, 'utf8');
-const records: Record<string,string>[] = parse(csvContent, {
+const records: Record<string, string>[] = parse(csvContent, {
   columns: true,
   skip_empty_lines: true,
 });
 console.log(`Linhas lidas do CSV: ${records.length}`);
 
-let allBooks: Book[] = [];  // força array vazio pra teste
-// se quiser manter registros antigos depois de confirmar, volte a carregar aqui
-
+const allBooks: Book[] = [];
 records.forEach((row, idx) => {
   const book: Book = {
     id:        `${row['ISBN_13']}-${idx}`,
@@ -49,5 +48,14 @@ records.forEach((row, idx) => {
 });
 
 console.log(`Vou gravar ${allBooks.length} registros no JSON.`);
-fs.writeFileSync(DATA_FILE, JSON.stringify(allBooks, null, 2), 'utf8');
-console.log(`Gravados ${allBooks.length} livros em ${DATA_FILE}.`);
+fs.writeFileSync(BOOKS_FILE, JSON.stringify(allBooks, null, 2), 'utf8');
+console.log(`Gravados ${allBooks.length} livros em ${BOOKS_FILE}.`);
+
+// Constrói e persiste a árvore separadamente
+const tree = new BTree(3);
+allBooks.forEach(book => {
+  const key = `${book.titulo}|${book.isbn13}`;
+  tree.insert(key, book);
+});
+fs.writeFileSync(TREE_FILE, JSON.stringify(tree.serialize(), null, 2), 'utf8');
+console.log(`Árvore B-Tree serializada em ${TREE_FILE}.`);

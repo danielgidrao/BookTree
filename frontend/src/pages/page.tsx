@@ -317,6 +317,7 @@ export default function BookTree() {
                                             Título
                                         </Label>
                                         <Input
+                                            id='titulo'
                                             placeholder="Digite o título..."
                                             value={searchTitulo}
                                             onChange={(e) =>
@@ -331,6 +332,7 @@ export default function BookTree() {
                                             Autor
                                         </Label>
                                         <Input
+                                            id='autor'
                                             placeholder="Digite o autor..."
                                             value={searchAutor}
                                             onChange={(e) =>
@@ -634,6 +636,7 @@ export default function BookTree() {
                                     {filteredBooks.map((book) => (
                                         <Card
                                             key={book.id}
+                                            id={book.isbn13}
                                             className="hover:shadow-lg transition-shadow">
                                             <CardContent className="p-4">
                                                 <div className="mb-2">
@@ -641,9 +644,9 @@ export default function BookTree() {
                                                         {book.titulo}
                                                     </h3>
                                                 </div>
-                                                <p className="text-gray-600 mb-3">
+                                                <h4 className="text-gray-600 mb-3">
                                                     {book.autor}
-                                                </p>
+                                                </h4>
 
                                                 <div className="space-y-2 text-sm text-gray-500">
                                                     <div className="flex items-center gap-2">
