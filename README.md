@@ -52,6 +52,7 @@
 
     cd backend
     # em dev com hot-reload
+    npm run import
     npm run dev
 
     # ou build + start
