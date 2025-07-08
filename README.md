@@ -9,7 +9,7 @@
 - **Backend**  
   - Node.js + TypeScript  
   - Express.js  
-  - B-Tree em memória (implementada em `bTree.ts`)  
+  - B-Tree em memória (implementada em `bTree.ts`), serializa ao importar, deserializa ao rodar.
   - Leitura de CSV (dataset de livros)
 
 - **Frontend**  
