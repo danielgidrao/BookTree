@@ -55,10 +55,6 @@
     npm run import
     npm run dev
 
-    # ou build + start
-    npm run build
-    npm start
-
 - A API ficará disponível em `http://localhost:3000`  
 - Lê o CSV em `backend/data/books.csv` e carrega todos os livros na B-Tree  
 - (Opcional) Serializa o índice em `backend/data/tree.json`
