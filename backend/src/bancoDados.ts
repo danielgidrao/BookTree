@@ -1,4 +1,3 @@
-
 import fs from 'fs';
 import path from 'path';
 import { Book, BookFilters } from './interfaces';
@@ -14,37 +13,15 @@ let bookTree: BTree;
 let persistedBooks: Book[] = [];
 
 function loadFromDisk() {
-  // Carrega array de livros
   if (fs.existsSync(BOOKS_FILE)) {
-    const rawBooks = fs.readFileSync(BOOKS_FILE, 'utf-8');
-    persistedBooks = JSON.parse(rawBooks) as Book[];
+    persistedBooks = JSON.parse(fs.readFileSync(BOOKS_FILE, 'utf-8'));
   }
 
-  // Carrega árvore serializada ou reconstrói
   if (fs.existsSync(TREE_FILE)) {
-    const rawTree = fs.readFileSync(TREE_FILE, 'utf-8');
-    const parsed = JSON.parse(rawTree) as any;
-    bookTree = BTree.deserialize(parsed);
+    bookTree = BTree.deserialize(JSON.parse(fs.readFileSync(TREE_FILE, 'utf-8')));
     console.log(`✅ Árvore B-Tree desserializada de ${TREE_FILE}.`);
   } else {
-    console.log(`ℹ️ Arquivo de árvore não encontrado em ${TREE_FILE}, reconstruindo a partir de ${BOOKS_FILE}.`);
-    bookTree = new BTree(3);
-    for (const book of persistedBooks) {
-      const key = `${book.titulo}|${book.isbn13}`;
-      bookTree.insert(key, book);
-    }
-  }
-
-  if (fs.existsSync(BOOKS_FILE)) {
-    const rawBooks = fs.readFileSync(BOOKS_FILE, 'utf-8');
-    persistedBooks = JSON.parse(rawBooks) as Book[];
-  }
-
-  if (fs.existsSync(TREE_FILE)) {
-    const rawTree = fs.readFileSync(TREE_FILE, 'utf-8');
-    const parsed = JSON.parse(rawTree) as any;
-    bookTree = BTree.deserialize(parsed);
-  } else {
+    console.log(`ℹ️ Arquivo de árvore não encontrado em ${TREE_FILE}, reconstruindo.`);
     bookTree = new BTree(3);
     for (const book of persistedBooks) {
       const key = `${book.titulo}|${book.isbn13}`;
@@ -55,14 +32,45 @@ function loadFromDisk() {
 
 function saveToDisk() {
   fs.writeFileSync(BOOKS_FILE, JSON.stringify(persistedBooks, null, 2));
-  const serialized = bookTree.serialize();
-  fs.writeFileSync(TREE_FILE, JSON.stringify(serialized, null, 2));
+  fs.writeFileSync(TREE_FILE, JSON.stringify(bookTree.serialize(), null, 2));
 }
 
 loadFromDisk();
 
+/**
+ * Verifica se um valor numérico está entre min e max (se definidos).
+ */
+function between(val: number, min?: number, max?: number) {
+  return (min === undefined || val >= min) && (max === undefined || val <= max);
+}
+
+/**
+ * Checa se o livro atende a todos os filtros passados.
+ */
 function matchesFilters(book: Book, filters: BookFilters): boolean {
-  return true; // omitido para brevidade
+  if (filters.isbn13 && !book.isbn13.includes(filters.isbn13)) return false;
+  if (filters.isbn10 && !book.isbn10.includes(filters.isbn10)) return false;
+  if (filters.titulo && !book.titulo.toLowerCase().includes(filters.titulo.toLowerCase())) return false;
+  if (filters.autor && !book.autor.toLowerCase().includes(filters.autor.toLowerCase())) return false;
+  if (filters.idioma && !book.idioma.toLowerCase().includes(filters.idioma.toLowerCase())) return false;
+  if (filters.editora && !book.editora.toLowerCase().includes(filters.editora.toLowerCase())) return false;
+  if (filters.genero && !book.genero.toLowerCase().includes(filters.genero.toLowerCase())) return false;
+  if (filters.descricao && !book.descricao.toLowerCase().includes(filters.descricao.toLowerCase())) return false;
+
+  if (!between(book.ano, filters.anoMin, filters.anoMax)) return false;
+  if (!between(book.paginas, filters.paginasMin, filters.paginasMax)) return false;
+  if (!between(book.rating, filters.ratingMin, filters.ratingMax)) return false;
+  if (!between(book.avaliacao, filters.avaliacaoMin, filters.avaliacaoMax)) return false;
+  if (!between(book.resenha, filters.resenhaMin, filters.resenhaMax)) return false;
+  if (!between(book.abandonos, filters.abandonosMin, filters.abandonosMax)) return false;
+  if (!between(book.relendo, filters.relendoMin, filters.relendoMax)) return false;
+  if (!between(book.queremLer, filters.queremLerMin, filters.queremLerMax)) return false;
+  if (!between(book.lendo, filters.lendoMin, filters.lendoMax)) return false;
+  if (!between(book.leram, filters.leramMin, filters.leramMax)) return false;
+  if (!between(book.male, filters.maleMin, filters.maleMax)) return false;
+  if (!between(book.female, filters.femaleMin, filters.femaleMax)) return false;
+
+  return true;
 }
 
 export function insertBook(book: Book): void {

@@ -1,37 +1,36 @@
-// src/index.ts
 import express from 'express';
 import cors from 'cors';
 import { Book, BookFilters } from './interfaces';
 import { insertBook, getAllBooks, searchBooksPaged } from './bancoDados';
 
-// configura servidor
 const app = express();
-app.use(cors());            // habilita CORS
-app.use(express.json());    // parse JSON bodies
+app.use(cors());
+app.use(express.json());
 
 // Loga quantidade de livros carregados
 const allBooks = getAllBooks();
 console.log(`📚 Carregados ${allBooks.length} livros do JSON.`);
 
 /**
- * Helper para verificar e transformar filtros de query
+ * Transforma query params em BookFilters,
+ * convertendo strings vazias em undefined.
  */
 function buildFilters(q: any): BookFilters {
   return {
-    isbn13:       q.isbn13    as string,
-    isbn10:       q.isbn10    as string,
-    titulo:       q.titulo    as string,
-    autor:        q.autor     as string,
-    idioma:       q.idioma    as string,
-    editora:      q.editora   as string,
-    genero:       q.genero    as string,
-    descricao:    q.descricao as string,
-    anoMin:       q.anoMin    ? Number(q.anoMin)    : undefined,
-    anoMax:       q.anoMax    ? Number(q.anoMax)    : undefined,
-    paginasMin:   q.paginasMin? Number(q.paginasMin): undefined,
-    paginasMax:   q.paginasMax? Number(q.paginasMax): undefined,
-    ratingMin:    q.ratingMin ? Number(q.ratingMin) : undefined,
-    ratingMax:    q.ratingMax ? Number(q.ratingMax) : undefined,
+    isbn13:    q.isbn13    && String(q.isbn13).trim() || undefined,
+    isbn10:    q.isbn10    && String(q.isbn10).trim() || undefined,
+    titulo:    q.titulo    && String(q.titulo).trim() || undefined,
+    autor:     q.autor     && String(q.autor).trim() || undefined,
+    idioma:    q.idioma    && String(q.idioma).trim() || undefined,
+    editora:   q.editora   && String(q.editora).trim() || undefined,
+    genero:    q.genero    && String(q.genero).trim() || undefined,
+    descricao: q.descricao && String(q.descricao).trim() || undefined,
+    anoMin:       q.anoMin       ? Number(q.anoMin)       : undefined,
+    anoMax:       q.anoMax       ? Number(q.anoMax)       : undefined,
+    paginasMin:   q.paginasMin   ? Number(q.paginasMin)   : undefined,
+    paginasMax:   q.paginasMax   ? Number(q.paginasMax)   : undefined,
+    ratingMin:    q.ratingMin    ? Number(q.ratingMin)    : undefined,
+    ratingMax:    q.ratingMax    ? Number(q.ratingMax)    : undefined,
     avaliacaoMin: q.avaliacaoMin ? Number(q.avaliacaoMin) : undefined,
     avaliacaoMax: q.avaliacaoMax ? Number(q.avaliacaoMax) : undefined,
     resenhaMin:   q.resenhaMin   ? Number(q.resenhaMin)   : undefined,
@@ -56,23 +55,26 @@ function buildFilters(q: any): BookFilters {
 /** Rota para inserir/atualizar um livro */
 app.post('/books', (req, res) => {
   const book = req.body as Book;
-  insertBook(book);            // persiste no JSON e na B-Tree interna
+  insertBook(book);
   res.status(201).json({ message: 'Livro inserido/atualizado.' });
-});
-
-/** Rota para buscar todos os livros */
-app.get('/books', (req, res) => {
-  res.json(allBooks);
 });
 
 /** Rota para buscar livros com filtros e paginação */
 app.get('/books/search', (req, res) => {
   const filters = buildFilters(req.query);
+  console.log('🔍 filtros recebidos:', filters);
+
   const page     = Math.max(1, parseInt(String(req.query.page  || '1'),  10));
   const pageSize = Math.max(1, parseInt(String(req.query.pageSize || '20'), 10));
 
   const { results, hasNextPage } = searchBooksPaged(filters, page, pageSize);
-  res.json({ page, pageSize, results, hasNextPage });
+
+  res.json({
+    page,
+    pageSize,
+    results,
+    hasNextPage
+  });
 });
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
