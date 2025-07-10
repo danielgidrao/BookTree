@@ -3,22 +3,22 @@ import { Book } from './interfaces';
 /**
  * Estruturas para serialização de nós e da árvore
  */
-interface SerializedNode {
+interface SerializedNode<T> {
   keys: string[];
-  values: Book[];
+  values: T[];
   leaf: boolean;
-  children: SerializedNode[];
+  children: SerializedNode<T>[];
 }
 
-interface SerializedBTree {
+interface SerializedBTree<T> {
   t: number;
-  root: SerializedNode;
+  root: SerializedNode<T>;
 }
 
-class BTreeNode {
+class BTreeNode<T> {
   keys: string[] = [];
-  values: Book[] = [];
-  children: BTreeNode[] = [];
+  values: T[] = [];
+  children: BTreeNode<T>[] = [];
   leaf: boolean;
 
   constructor(leaf: boolean) {
@@ -27,23 +27,25 @@ class BTreeNode {
 }
 
 /**
- * B-Tree de grau mínimo t com serialização
+ * B-Tree genérica de grau mínimo t, parametrizada por getKey
  */
-export class BTree {
-  private root: BTreeNode;
+export class BTree<T> {
+  private root: BTreeNode<T>;
   private t: number;
+  private getKey: (v: T) => string;
 
-  constructor(t: number = 3) {
+  constructor(getKey: (v: T) => string, t: number = 3) {
+    this.getKey = getKey;
     this.t = t;
-    this.root = new BTreeNode(true);
+    this.root = new BTreeNode<T>(true);
   }
 
   // --- Serialização / Desserialização ---
-  serialize(): SerializedBTree {
+  serialize(): SerializedBTree<T> {
     return { t: this.t, root: BTree._serializeNode(this.root) };
   }
 
-  private static _serializeNode(node: BTreeNode): SerializedNode {
+  private static _serializeNode<U>(node: BTreeNode<U>): SerializedNode<U> {
     return {
       keys: [...node.keys],
       values: [...node.values],
@@ -52,14 +54,17 @@ export class BTree {
     };
   }
 
-  static deserialize(data: SerializedBTree): BTree {
-    const tree = new BTree(data.t);
+  static deserialize<U>(
+    data: SerializedBTree<U>,
+    getKey: (v: U) => string
+  ): BTree<U> {
+    const tree = new BTree<U>(getKey, data.t);
     tree.root = BTree._deserializeNode(data.root);
     return tree;
   }
 
-  private static _deserializeNode(obj: SerializedNode): BTreeNode {
-    const node = new BTreeNode(obj.leaf);
+  private static _deserializeNode<U>(obj: SerializedNode<U>): BTreeNode<U> {
+    const node = new BTreeNode<U>(obj.leaf);
     node.keys = [...obj.keys];
     node.values = [...obj.values];
     node.children = obj.children.map(child => BTree._deserializeNode(child));
@@ -67,11 +72,11 @@ export class BTree {
   }
 
   // --- Busca exata ---
-  searchExact(key: string): Book | null {
+  searchExact(key: string): T | null {
     return this._search(this.root, key);
   }
 
-  private _search(node: BTreeNode, key: string): Book | null {
+  private _search(node: BTreeNode<T>, key: string): T | null {
     let i = 0;
     while (i < node.keys.length && key > node.keys[i]) i++;
     if (i < node.keys.length && key === node.keys[i]) {
@@ -82,10 +87,11 @@ export class BTree {
   }
 
   // --- Inserção ---
-  insert(key: string, value: Book): void {
+  insert(value: T): void {
+    const key = this.getKey(value);
     const r = this.root;
     if (r.keys.length === 2 * this.t - 1) {
-      const s = new BTreeNode(false);
+      const s = new BTreeNode<T>(false);
       s.children.push(r);
       this._splitChild(s, 0);
       this.root = s;
@@ -95,10 +101,10 @@ export class BTree {
     }
   }
 
-  private _splitChild(node: BTreeNode, i: number): void {
+  private _splitChild(node: BTreeNode<T>, i: number): void {
     const t = this.t;
     const y = node.children[i];
-    const z = new BTreeNode(y.leaf);
+    const z = new BTreeNode<T>(y.leaf);
 
     z.keys = y.keys.splice(t);
     z.values = y.values.splice(t);
@@ -111,7 +117,7 @@ export class BTree {
     node.values.splice(i, 0, medianVal);
   }
 
-  private _insertNonFull(node: BTreeNode, key: string, value: Book): void {
+  private _insertNonFull(node: BTreeNode<T>, key: string, value: T): void {
     let i = node.keys.length - 1;
     if (node.leaf) {
       while (i >= 0 && key < node.keys[i]) i--;
@@ -128,12 +134,35 @@ export class BTree {
     }
   }
 
-  // --- Percurso em ordem ---
-  inorder(callback: (book: Book) => void): void {
+  // --- Travessia em ordem (generator) ---
+  private *inorderGenerator(node: BTreeNode<T> = this.root): IterableIterator<T> {
+    for (let i = 0; i < node.keys.length; i++) {
+      if (!node.leaf) yield* this.inorderGenerator(node.children[i]);
+      yield node.values[i];
+    }
+    if (!node.leaf) yield* this.inorderGenerator(node.children[node.keys.length]);
+  }
+
+  /**
+   * Busca por intervalo [minKey, maxKey]
+   */
+  rangeSearch(minKey: string, maxKey: string): T[] {
+    const resultados: T[] = [];
+    for (const value of this.inorderGenerator()) {
+      const key = this.getKey(value);
+      if (key < minKey) continue;
+      if (key > maxKey) break;
+      resultados.push(value);
+    }
+    return resultados;
+  }
+
+  // --- Percurso em ordem via callback ---
+  inorder(callback: (v: T) => void): void {
     this._inorder(this.root, callback);
   }
 
-  private _inorder(node: BTreeNode, callback: (book: Book) => void): void {
+  private _inorder(node: BTreeNode<T>, callback: (v: T) => void): void {
     for (let i = 0; i < node.keys.length; i++) {
       if (!node.leaf) this._inorder(node.children[i], callback);
       callback(node.values[i]);
@@ -142,10 +171,10 @@ export class BTree {
   }
 
   // --- Busca por prefixo ---
-  searchByPrefix(prefix: string): Book[] {
-    const results: Book[] = [];
-    this.inorder(book => {
-      if (book.titulo.startsWith(prefix)) results.push(book);
+  searchByPrefix(prefix: string): T[] {
+    const results: T[] = [];
+    this.inorder(v => {
+      if (this.getKey(v).startsWith(prefix)) results.push(v);
     });
     return results;
   }

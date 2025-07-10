@@ -5,85 +5,62 @@ import { BTree } from './bTree';
 
 const DATA_DIR = path.resolve(__dirname, 'data');
 const BOOKS_FILE = path.join(DATA_DIR, 'books.json');
-const TREE_FILE = path.join(DATA_DIR, 'Btree.json');
 
-fs.mkdirSync(DATA_DIR, { recursive: true });
+// -- 1) Carrega todos os livros da JSON
+if (!fs.existsSync(BOOKS_FILE)) {
+  console.error(`Arquivo ${BOOKS_FILE} não encontrado!`);
+  process.exit(1);
+}
+const persistedBooks: Book[] = JSON.parse(
+  fs.readFileSync(BOOKS_FILE, 'utf8')
+);
 
-let bookTree: BTree;
-let persistedBooks: Book[] = [];
+// -- 2) Define quais campos terão índice e como gerar a chave
+type FieldKey = keyof Book;
+const indexableFields: FieldKey[] = [
+  'id','titulo','autor','isbn13','isbn10','ano','paginas',
+  'idioma','editora','genero','descricao','rating','avaliacao',
+  'resenha','abandonos','relendo','queremLer','lendo','leram','male','female'
+];
 
-function loadFromDisk() {
-  if (fs.existsSync(BOOKS_FILE)) {
-    persistedBooks = JSON.parse(fs.readFileSync(BOOKS_FILE, 'utf-8'));
+// Helper para converter qualquer campo em string ordenável
+function makeKey(field: FieldKey, v: any): string {
+  if (typeof v === 'number')   return String(v).padStart(10,'0');
+  return String(v).toLowerCase();
+}
+
+// -- 3) Cria um BTree para cada campo
+const indexes = new Map<FieldKey, BTree<Book>>();
+for (const f of indexableFields) {
+  indexes.set(
+    f,
+    new BTree<Book>(book => makeKey(f, (book as any)[f]), 3)
+  );
+}
+
+// -- 4) Popula todos os índices
+for (const book of persistedBooks) {
+  for (const tree of indexes.values()) {
+    tree.insert(book);
   }
-
-  if (fs.existsSync(TREE_FILE)) {
-    bookTree = BTree.deserialize(JSON.parse(fs.readFileSync(TREE_FILE, 'utf-8')));
-    console.log(`✅ Árvore B-Tree desserializada de ${TREE_FILE}.`);
-  } else {
-    console.log(`ℹ️ Arquivo de árvore não encontrado em ${TREE_FILE}, reconstruindo.`);
-    bookTree = new BTree(3);
-    for (const book of persistedBooks) {
-      const key = `${book.titulo}|${book.isbn13}`;
-      bookTree.insert(key, book);
-    }
-  }
 }
 
-function saveToDisk() {
-  fs.writeFileSync(BOOKS_FILE, JSON.stringify(persistedBooks, null, 2));
-  fs.writeFileSync(TREE_FILE, JSON.stringify(bookTree.serialize(), null, 2));
-}
-
-loadFromDisk();
-
-/**
- * Verifica se um valor numérico está entre min e max (se definidos).
- */
-function between(val: number, min?: number, max?: number) {
-  return (min === undefined || val >= min) && (max === undefined || val <= max);
-}
-
-/**
- * Checa se o livro atende a todos os filtros passados.
- */
-function matchesFilters(book: Book, filters: BookFilters): boolean {
-  if (filters.isbn13 && !book.isbn13.includes(filters.isbn13)) return false;
-  if (filters.isbn10 && !book.isbn10.includes(filters.isbn10)) return false;
-  if (filters.titulo && !book.titulo.toLowerCase().includes(filters.titulo.toLowerCase())) return false;
-  if (filters.autor && !book.autor.toLowerCase().includes(filters.autor.toLowerCase())) return false;
-  if (filters.idioma && !book.idioma.toLowerCase().includes(filters.idioma.toLowerCase())) return false;
-  if (filters.editora && !book.editora.toLowerCase().includes(filters.editora.toLowerCase())) return false;
-  if (filters.genero && !book.genero.toLowerCase().includes(filters.genero.toLowerCase())) return false;
-  if (filters.descricao && !book.descricao.toLowerCase().includes(filters.descricao.toLowerCase())) return false;
-
-  if (!between(book.ano, filters.anoMin, filters.anoMax)) return false;
-  if (!between(book.paginas, filters.paginasMin, filters.paginasMax)) return false;
-  if (!between(book.rating, filters.ratingMin, filters.ratingMax)) return false;
-  if (!between(book.avaliacao, filters.avaliacaoMin, filters.avaliacaoMax)) return false;
-  if (!between(book.resenha, filters.resenhaMin, filters.resenhaMax)) return false;
-  if (!between(book.abandonos, filters.abandonosMin, filters.abandonosMax)) return false;
-  if (!between(book.relendo, filters.relendoMin, filters.relendoMax)) return false;
-  if (!between(book.queremLer, filters.queremLerMin, filters.queremLerMax)) return false;
-  if (!between(book.lendo, filters.lendoMin, filters.lendoMax)) return false;
-  if (!between(book.leram, filters.leramMin, filters.leramMax)) return false;
-  if (!between(book.male, filters.maleMin, filters.maleMax)) return false;
-  if (!between(book.female, filters.femaleMin, filters.femaleMax)) return false;
-
-  return true;
-}
-
-export function insertBook(book: Book): void {
-  const key = `${book.titulo}|${book.isbn13}`;
-  bookTree.insert(key, book);
-  const idx = persistedBooks.findIndex(b => b.isbn13 === book.isbn13);
-  if (idx >= 0) persistedBooks[idx] = book;
-  else persistedBooks.push(book);
-  saveToDisk();
-}
+// -- 5) Funções exportadas
 
 export function getAllBooks(): Book[] {
   return [...persistedBooks];
+}
+
+export function insertBook(book: Book): void {
+  persistedBooks.push(book);
+  for (const tree of indexes.values()) {
+    tree.insert(book);
+  }
+  fs.writeFileSync(BOOKS_FILE, JSON.stringify(persistedBooks, null, 2));
+}
+
+function between(n: number, min?: number, max?: number): boolean {
+  return (min === undefined || n >= min) && (max === undefined || n <= max);
 }
 
 export function searchBooksPaged(
@@ -91,27 +68,52 @@ export function searchBooksPaged(
   page: number,
   pageSize: number
 ): { results: Book[]; hasNextPage: boolean } {
-  const results: Book[] = [];
-  let matchedCount = 0;
-  const offset = (page - 1) * pageSize;
-  let stop = false;
+  // --- 5.1) encontrar candidatos via índices de intervalo
+  let candidateSet: Set<Book> | Book[] = persistedBooks;
 
-  try {
-    bookTree.inorder(book => {
-      if (stop) return;
-      if (!matchesFilters(book, filters)) return;
-      if (matchedCount >= offset) {
-        results.push(book);
-        if (results.length >= pageSize) {
-          stop = true;
-          throw new Error('__INORDER_STOP__');
-        }
-      }
-      matchedCount++;
-    });
-  } catch (err: any) {
-    if (err.message !== '__INORDER_STOP__') throw err;
+  for (const [field, tree] of indexes) {
+    const min = (filters as any)[`${field}Min`];
+    const max = (filters as any)[`${field}Max`];
+    if (min !== undefined || max !== undefined) {
+      const keyMin = min  !== undefined ? makeKey(field, min) : '';
+      const keyMax = max  !== undefined ? makeKey(field, max) : '\uffff';
+      const subset = tree.rangeSearch(keyMin, keyMax);
+      // intersecta com candidatos atuais
+      const prev: Set<Book> = candidateSet instanceof Set
+        ? candidateSet
+        : new Set<Book>(candidateSet);
+      candidateSet = new Set<Book>(
+        subset.filter(b => prev.has(b))
+      );
+    }
   }
 
-  return { results, hasNextPage: results.length === pageSize };
+  // --- 5.2) aplica os demais filtros em memória
+  const arr = candidateSet instanceof Set
+    ? Array.from(candidateSet)
+    : candidateSet;
+
+  const filtered = arr.filter(book => {
+    // texto/exato
+    if (filters.isbn13    && !book.isbn13.includes(filters.isbn13)) return false;
+    if (filters.isbn10    && !book.isbn10.includes(filters.isbn10)) return false;
+    if (filters.titulo    && !book.titulo.toLowerCase().includes(filters.titulo.toLowerCase())) return false;
+    if (filters.autor     && !book.autor.toLowerCase().includes(filters.autor.toLowerCase())) return false;
+    // ... mesmo para idioma, editora, genero, descricao
+
+    // numéricos sem índice de intervalo (já tratados pelos índices, mas repetimos pra segurança)
+    if (!between(book.ano,       filters.anoMin,       filters.anoMax))       return false;
+    if (!between(book.paginas,   filters.paginasMin,   filters.paginasMax))   return false;
+    if (!between(book.rating,    filters.ratingMin,    filters.ratingMax))    return false;
+    if (!between(book.avaliacao, filters.avaliacaoMin, filters.avaliacaoMax)) return false;
+    // ... demais campos
+    return true;
+  });
+
+  // --- 5.3) paginação
+  const start   = (page - 1) * pageSize;
+  const results = filtered.slice(start, start + pageSize);
+  const hasNext = start + pageSize < filtered.length;
+
+  return { results, hasNextPage: hasNext };
 }

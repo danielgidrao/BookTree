@@ -13,7 +13,6 @@ import {
     Globe,
     Hash,
     MessageSquare,
-    BookOpen,
     UserCheck,
     Heart,
     Eye,
@@ -22,7 +21,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
@@ -180,6 +178,7 @@ export default function BookTree() {
                     },
                 });
                 setBooks(data.results);
+                console.log(data.results);
                 setHasNextPage(data.hasNextPage);
             } catch (error) {
                 console.error("Erro ao buscar livros:", error);
